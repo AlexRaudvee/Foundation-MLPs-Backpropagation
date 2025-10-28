@@ -38,9 +38,16 @@ This repository introduces the theoretical and practical foundations of backprop
 ## ⚙️ Setup
 
 #### 1. Create the environment
+if using cpu
+```shell
+conda env create -f dl2025_cpu.yml
+conda activate mlp
+```
+
+if using cuda: 
 
 ```shell
-conda env create -f env.yaml
+conda env create -f dl2025_gpu.yml
 conda activate mlp
 ```
 
