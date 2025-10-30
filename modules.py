@@ -51,6 +51,16 @@ class LinearModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        limit = np.sqrt(2.0 / (in_features + out_features))
+        self.params['weight'] = np.random.uniform(-limit, limit, size=(out_features, in_features)).astype(np.float32)
+        self.params['bias'] = np.zeros((1, out_features), dtype=np.float32)
+
+        self.grads['weight'] = np.zeros_like(self.params['weight'])
+        self.grads['bias'] = np.zeros_like(self.params['bias'])
+
+        # caches
+        self.x = None
+        
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -73,6 +83,11 @@ class LinearModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
+        
+        self.x = x
+        W = self.params['weight']
+        b = self.params['bias']
+        out = x @ W.T + b              
 
         #######################
         # END OF YOUR CODE    #
@@ -98,6 +113,13 @@ class LinearModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        # dW = dout^T @ x
+        self.grads['weight'] = dout.T @ self.x
+        # db = row-sum over batch
+        self.grads['bias'] = np.sum(dout, axis=0, keepdims=True)
+        # dx = dout @ W
+        dx = dout @ self.params['weight']
+        
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -114,7 +136,7 @@ class LinearModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        self.x = None
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -146,7 +168,12 @@ class ELUModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-
+        
+        self.x = x
+        out = x.copy()
+        neg_mask = x <= 0
+        out[neg_mask] = self.alpha * (np.exp(x[neg_mask]) - 1.0)
+        
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -169,6 +196,10 @@ class ELUModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        neg_mask = self.x <= 0
+        dx = dout.copy()
+        dx[neg_mask] *= self.alpha * np.exp(self.x[neg_mask])
+        
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -185,7 +216,7 @@ class ELUModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        self.x = None
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -215,6 +246,11 @@ class SoftMaxModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        x_shift = x - np.max(x, axis=1, keepdims=True)
+        expx = np.exp(x_shift)
+        out = expx / np.sum(expx, axis=1, keepdims=True)
+        self.y = out
+        
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -237,6 +273,9 @@ class SoftMaxModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        s = np.sum(dout * self.y, axis=1, keepdims=True)
+        dx = self.y * (dout - s)
+        
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -254,7 +293,7 @@ class SoftMaxModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        self.y = None
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -282,6 +321,19 @@ class CrossEntropyModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        eps = 1e-12
+
+        if y.ndim == 2:
+            y_idx = np.argmax(y, axis=1)
+        else:
+            y_idx = y
+
+        # clip to avoid log(0)
+        p = np.clip(x[np.arange(x.shape[0]), y_idx], eps, 1.0)
+        out = -np.mean(np.log(p))
+        # cache for backward
+        self.cache = (x, y_idx)
+        
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -305,6 +357,11 @@ class CrossEntropyModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        x, y_idx = self.cache
+        dx = np.zeros_like(x)
+        dx[np.arange(x.shape[0]), y_idx] = -1.0 / np.clip(x[np.arange(x.shape[0]), y_idx], 1e-12, 1.0)
+        dx /= x.shape[0]
+        
         #######################
         # END OF YOUR CODE    #
         #######################

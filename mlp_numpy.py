@@ -52,7 +52,18 @@ class MLP(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        
+        self.modules = []
+        in_dim = n_inputs
+
+        for h in n_hidden:
+            self.modules.append(LinearModule(in_dim, h))
+            self.modules.append(ELUModule(alpha=1.0))
+            in_dim = h
+
+        self.modules.append(LinearModule(in_dim, n_classes))
+        self.modules.append(SoftMaxModule())
+        
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -75,6 +86,10 @@ class MLP(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        out = x
+        for m in self.modules:
+            out = m.forward(out)
+        
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -95,7 +110,11 @@ class MLP(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        
+        for m in reversed(self.modules):
+            dout = m.backward(dout) if hasattr(m, 'backward') else dout
+            
+        return dout
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -112,7 +131,11 @@ class MLP(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        
+        for m in self.modules:
+            if hasattr(m, 'clear_cache'):
+                m.clear_cache()
+                
         #######################
         # END OF YOUR CODE    #
         #######################
