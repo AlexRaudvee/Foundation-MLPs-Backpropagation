@@ -284,7 +284,7 @@ if __name__ == '__main__':
     
     os.makedirs(name="assets/plots", exist_ok=True)
     
-    def plot_training_curves(logging_dict, save_path='assets/plots/training_curves.png'):
+    def plot_training_curves(logging_dict, save_path='assets/plots/training_curves_numpy.png'):
         """
         Plots training/validation losses and accuracies on a single plot.
         """

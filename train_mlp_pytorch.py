@@ -33,6 +33,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import matplotlib.pyplot as plt
 
 def accuracy(predictions, targets):
     """
@@ -54,7 +55,8 @@ def accuracy(predictions, targets):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
-
+    preds = torch.argmax(predictions, dim=1)
+    accuracy = (preds == targets).float().mean().item()
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -82,7 +84,21 @@ def evaluate_model(model, data_loader):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
+    model.eval()
+    total_correct = 0
+    total_samples = 0
+    device = next(model.parameters()).device
 
+    with torch.no_grad():
+        for Xb, yb in data_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            Xb = Xb.view(Xb.size(0), -1)
+            logits = model(Xb)
+            preds = torch.argmax(logits, dim=1)
+            total_correct += (preds == yb).sum().item()
+            total_samples += yb.size(0)
+
+    avg_accuracy = total_correct / max(total_samples, 1)
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -145,15 +161,98 @@ def train(hidden_dims, lr, use_batch_norm, batch_size, epochs, seed, data_dir):
     #######################
 
     # TODO: Initialize model and loss module
-    model = ...
-    loss_module = ...
+    model = MLP(n_inputs=32*32*3, n_hidden=hidden_dims, n_classes=10, use_batch_norm=use_batch_norm).to(device)
+    loss_module = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(model.parameters(), lr=lr)
+
+    train_losses, val_losses = [], []
+    train_accuracies, val_accuracies = [], []
+    best_val_acc = -1.0
+    best_state = None
+    
     # TODO: Training loop including validation
     # TODO: Do optimization with the simple SGD optimizer
-    val_accuracies = ...
+    for epoch in range(epochs):
+        model.train()
+        epoch_loss = 0.0
+        correct_train = 0
+        total_train = 0
+
+        for Xb, yb in cifar10_loader['train']:
+            Xb, yb = Xb.to(device), yb.to(device)
+            Xb = Xb.view(Xb.size(0), -1)
+
+            optimizer.zero_grad()
+            logits = model(Xb)
+            loss = loss_module(logits, yb)
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += loss.item() * Xb.size(0)
+            preds = torch.argmax(logits, dim=1)
+            correct_train += (preds == yb).sum().item()
+            total_train += yb.size(0)
+
+        avg_train_loss = epoch_loss / total_train
+        train_losses.append(avg_train_loss)
+        train_accuracies.append(correct_train / total_train)
+
+        # Validation
+        model.eval()
+        val_loss_epoch = 0.0
+        correct_val = 0
+        total_val = 0
+        with torch.no_grad():
+            for Xv, yv in cifar10_loader['validation']:
+                Xv, yv = Xv.to(device), yv.to(device)
+                Xv = Xv.view(Xv.size(0), -1)
+                logits = model(Xv)
+                loss = loss_module(logits, yv)
+                val_loss_epoch += loss.item() * Xv.size(0)
+                preds = torch.argmax(logits, dim=1)
+                correct_val += (preds == yv).sum().item()
+                total_val += yv.size(0)
+
+        avg_val_loss = val_loss_epoch / total_val
+        val_acc = correct_val / total_val
+        val_losses.append(avg_val_loss)
+        val_accuracies.append(val_acc)
+
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            best_state = deepcopy(model.state_dict())
+
+        print(f"Epoch [{epoch+1}/{epochs}] "
+              f"Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}, "
+              f"Train Acc: {train_accuracies[-1]*100:.2f}%, Val Acc: {val_acc*100:.2f}%")
+    
+    # Restore best model
+    if best_state is not None:
+        model.load_state_dict(best_state)
+      
     # TODO: Test best model
-    test_accuracy = ...
+    model.eval()
+    total_correct = 0
+    total_samples = 0
+    with torch.no_grad():
+        for Xt, yt in cifar10_loader['test']:
+            Xt, yt = Xt.to(device), yt.to(device)
+            Xt = Xt.view(Xt.size(0), -1)
+            logits = model(Xt)
+            preds = torch.argmax(logits, dim=1)
+            total_correct += (preds == yt).sum().item()
+            total_samples += yt.size(0)
+    test_accuracy = total_correct / max(total_samples, 1)
+    
     # TODO: Add any information you might want to save for plotting
-    logging_dict = ...
+    logging_dict = {
+        'train_losses': train_losses,
+        'val_losses': val_losses,
+        'train_accuracies': train_accuracies,
+        'val_accuracies': val_accuracies,
+        'best_val_accuracy': best_val_acc,
+        'test_accuracy': test_accuracy,
+    }
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -188,6 +287,22 @@ if __name__ == '__main__':
     args = parser.parse_args()
     kwargs = vars(args)
 
-    train(**kwargs)
-    # Feel free to add any additional functions, such as plotting of the loss curve here
-    
+    _, _, _, logging_dict = train(**kwargs)
+
+    def plot_training_curves(logging_dict, save_path='assets/plots/training_curves_pytorch.png'):
+      epochs = range(1, len(logging_dict["train_losses"]) + 1)
+      plt.figure(figsize=(8,5))
+      plt.plot(epochs, logging_dict["train_losses"], 'b-o', label="Train Loss")
+      plt.plot(epochs, logging_dict["val_losses"], 'c--o', label="Val Loss")
+      plt.plot(epochs, logging_dict["train_accuracies"], 'r-s', label="Train Acc")
+      plt.plot(epochs, logging_dict["val_accuracies"], 'm--s', label="Val Acc")
+      plt.xlabel("Epoch")
+      plt.ylabel("Value")
+      plt.title("Training and Validation Curves (PyTorch)")
+      plt.legend()
+      plt.grid(True, linestyle="--", alpha=0.5)
+      plt.tight_layout()
+      plt.savefig(save_path, bbox_inches="tight", dpi=150)
+      print(f"Saved PyTorch training curve to {save_path}")
+
+    plot_training_curves(logging_dict)

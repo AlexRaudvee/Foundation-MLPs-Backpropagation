@@ -59,7 +59,31 @@ class MLP(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        super().__init__()
+        self.use_batch_norm = use_batch_norm  
+        
+        hidden_dims = n_hidden
+        if isinstance(hidden_dims, int):
+            hidden_dims = [hidden_dims]
+        elif hidden_dims is None:
+            hidden_dims = []
+        else:
+            hidden_dims = list(hidden_dims)
+
+        layers = []
+        in_dim = n_inputs
+
+        for h in hidden_dims:
+            layers.append(nn.Linear(in_dim, h))
+            if getattr(self, 'use_batch_norm', False):
+                layers.append(nn.BatchNorm1d(h))
+            layers.append(nn.ELU(alpha=1.0))
+            in_dim = h
+
+        layers.append(nn.Linear(in_dim, n_classes))
+
+        self.model = nn.Sequential(*layers)
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -81,7 +105,7 @@ class MLP(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-
+        out = self.model(x)
         #######################
         # END OF YOUR CODE    #
         #######################
