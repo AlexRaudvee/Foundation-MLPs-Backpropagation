@@ -224,7 +224,11 @@ def train(hidden_dims, lr, batch_size, epochs, seed, data_dir):
                     best_state.append(ps)
                 else:
                     best_state.append(None)
-    
+                    
+        print(f"Epoch [{epoch+1}/{epochs}] "
+              f"Train Loss: {train_losses[-1]:.4f}, Val Loss: {val_losses[-1]:.4f}, "
+              f"Train Acc: {train_accuracies[-1]*100:.2f}%, Val Acc: {val_acc*100:.2f}%")
+        
     # restore best
     idx = 0
     for m in model.modules:
